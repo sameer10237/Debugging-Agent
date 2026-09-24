@@ -79,7 +79,7 @@ class Execution(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
-    metadata = Column(JSON, nullable=True, default={})
+    execution_metadata = Column("metadata", JSON, nullable=True, default={})
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
