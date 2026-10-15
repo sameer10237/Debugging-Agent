@@ -86,6 +86,30 @@ class Execution(Base):
     project = relationship("Project", back_populates="executions")
     agents = relationship("AgentExecution", back_populates="execution", cascade="all, delete-orphan")
     analysis = relationship("Analysis", uselist=False, back_populates="execution")
+    snapshots = relationship(
+        "ExecutionSnapshot",
+        back_populates="execution",
+        cascade="all, delete-orphan",
+        order_by="ExecutionSnapshot.created_at, ExecutionSnapshot.id",
+    )
+
+
+class ExecutionSnapshot(Base):
+    """A point-in-time JSON state captured during an execution."""
+    __tablename__ = "execution_snapshots"
+
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    execution_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("executions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    label = Column(String(255), nullable=True)
+    state = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+
+    execution = relationship("Execution", back_populates="snapshots")
 
 
 class AgentExecution(Base):
