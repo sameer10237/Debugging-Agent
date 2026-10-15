@@ -61,10 +61,40 @@ A production-grade full-stack system that orchestrates multiple AI agents to aut
 - 🔍 **Advanced Root-Cause Analysis** — Systematic debugging methodology
 - 🛡️ **Security-First** — Security implications flagged automatically
 - 📊 **Real-time Monitoring** — React dashboard tracking agent progress
+- ⏱️ **Execution State History** — Persist and compare JSON snapshots to inspect state changes
 - 🗄️ **PostgreSQL Integration** — Persistent state management
 - 🐳 **Docker Support** — Complete containerization
 - ✅ **Comprehensive Testing** — pytest and integration tests
 - 📚 **Full Documentation** — Architecture, APIs, and guides
+
+## Execution State History
+
+Capture point-in-time JSON state for an execution, list its snapshots in recorded order,
+and compare two snapshots using JSON Pointer paths. Common credentials and personal
+identifiers are redacted before snapshot persistence and when historical snapshots are read.
+
+```http
+POST /api/executions/{execution_id}/snapshots
+Content-Type: application/json
+
+{
+  "label": "after request",
+  "state": {
+    "request": {"status": "failed"},
+    "retry_count": 1
+  }
+}
+```
+
+`GET /api/executions/{execution_id}/snapshots` returns the execution timeline.
+Compare snapshots with:
+
+```http
+GET /api/executions/{execution_id}/snapshots/diff?before_id={snapshot_id}&after_id={snapshot_id}
+```
+
+The response's `changes` array identifies added, removed, and changed values. Array paths
+use zero-based indexes; dictionary path segments escape `~` and `/` per JSON Pointer.
 
 ## Quick Start
 

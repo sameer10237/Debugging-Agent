@@ -1,14 +1,17 @@
 """Tests for execution state history and simulation APIs."""
 
-import pytest
+from uuid import UUID
+
 from fastapi import FastAPI
 from httpx import ASGITransport, AsyncClient
+import pytest
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.api import simulation
 from app.database import Base, get_db
 from app.models import Execution, ExecutionSnapshot, Project
+from app.services.pii_scrubber import REDACTED, scrub_state
 
 
 @pytest.fixture
@@ -64,7 +67,7 @@ async def simulation_client():
         transport=ASGITransport(app=test_app),
         base_url="http://test",
     ) as client:
-        yield client, execution_id, other_execution_id
+        yield client, execution_id, other_execution_id, session_factory
     await engine.dispose()
 
 
@@ -98,7 +101,7 @@ async def test_execution_snapshot_persists_state(simulation_session):
 
 @pytest.mark.asyncio
 async def test_snapshot_timeline_and_state_diff(simulation_client):
-    client, execution_id, _ = simulation_client
+    client, execution_id, _, _ = simulation_client
     before_response = await client.post(
         f"/api/executions/{execution_id}/snapshots",
         json={
@@ -139,7 +142,7 @@ async def test_snapshot_timeline_and_state_diff(simulation_client):
 
 @pytest.mark.asyncio
 async def test_snapshot_diff_rejects_snapshot_from_another_execution(simulation_client):
-    client, execution_id, other_execution_id = simulation_client
+    client, execution_id, other_execution_id, _ = simulation_client
     first = await client.post(
         f"/api/executions/{execution_id}/snapshots",
         json={"state": {"step": 1}},
@@ -158,3 +161,103 @@ async def test_snapshot_diff_rejects_snapshot_from_another_execution(simulation_
     )
 
     assert response.status_code == 404
+
+
+def test_scrub_state_redacts_sensitive_keys_and_embedded_values():
+    scrubbed = scrub_state(
+        {
+            "user": {
+                "email": "ada@example.com",
+                "display_name": "Ada",
+                "api_key": "sk-this-is-a-fake-secret",
+            },
+            "message": (
+                'Contact ada@example.com; access_token=abcdef123; '
+                'password="two words"'
+            ),
+            "authorization": "Bearer abcdef123",
+            "log": "key sk-12345678901234567890 jwt eyJabcde.eyJfghij.eyJklmno",
+            "name": "Ada",
+            "ada@example.com": "state key",
+        }
+    )
+
+    assert scrubbed == {
+        "user": {
+            "email": REDACTED,
+            "display_name": REDACTED,
+            "api_key": REDACTED,
+        },
+        "message": (
+            f'Contact {REDACTED}; access_token={REDACTED}; '
+            f'password="{REDACTED}"'
+        ),
+        "authorization": REDACTED,
+        "log": f"key {REDACTED} jwt {REDACTED}",
+        "name": REDACTED,
+        REDACTED: "state key",
+    }
+
+
+@pytest.mark.asyncio
+async def test_snapshot_scrubs_sensitive_data_before_persisting(simulation_client):
+    client, execution_id, _, session_factory = simulation_client
+    response = await client.post(
+        f"/api/executions/{execution_id}/snapshots",
+        json={
+            "label": "snapshot for ada@example.com",
+            "state": {
+                "user": {"email": "ada@example.com", "display_name": "Ada"},
+                "log": "Bearer abcdef123",
+            }
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["label"] == f"snapshot for {REDACTED}"
+    assert response.json()["state"] == {
+        "user": {"email": REDACTED, "display_name": REDACTED},
+        "log": f"Bearer {REDACTED}",
+    }
+    async with session_factory() as session:
+        stored = await session.get(
+            ExecutionSnapshot,
+            UUID(response.json()["id"]),
+        )
+    assert stored.state == response.json()["state"]
+
+
+@pytest.mark.asyncio
+async def test_legacy_snapshots_are_scrubbed_when_read_and_compared(simulation_client):
+    client, execution_id, _, session_factory = simulation_client
+    async with session_factory() as session:
+        before = ExecutionSnapshot(
+            execution_id=execution_id,
+            state={"email": "first@example.com"},
+        )
+        after = ExecutionSnapshot(
+            execution_id=execution_id,
+            state={"email": "second@example.com"},
+        )
+        session.add_all([before, after])
+        await session.commit()
+        before_id, after_id = before.id, after.id
+
+    timeline = await client.get(f"/api/executions/{execution_id}/snapshots")
+    diff = await client.get(
+        f"/api/executions/{execution_id}/snapshots/diff",
+        params={"before_id": before_id, "after_id": after_id},
+    )
+
+    assert [item["state"] for item in timeline.json()] == [
+        {"email": REDACTED},
+        {"email": REDACTED},
+    ]
+    assert diff.json()["changes"] == [
+        {
+            "path": "/email",
+            "change": "changed",
+            "before": REDACTED,
+            "after": REDACTED,
+        }
+    ]

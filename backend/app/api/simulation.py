@@ -11,6 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.models import Execution, ExecutionSnapshot
+from app.services.pii_scrubber import scrub_diff_values, scrub_state, scrub_text
 
 router = APIRouter()
 
@@ -69,8 +70,8 @@ async def create_snapshot(
 
     snapshot = ExecutionSnapshot(
         execution_id=execution_id,
-        label=request.label,
-        state=request.state,
+        label=scrub_text(request.label) if request.label is not None else None,
+        state=scrub_state(request.state),
     )
     db.add(snapshot)
     await db.commit()
@@ -95,7 +96,16 @@ async def list_snapshots(
         .where(ExecutionSnapshot.execution_id == execution_id)
         .order_by(ExecutionSnapshot.created_at, ExecutionSnapshot.id)
     )
-    return result.scalars().all()
+    return [
+        SnapshotResponse(
+            id=snapshot.id,
+            execution_id=snapshot.execution_id,
+            label=scrub_text(snapshot.label) if snapshot.label is not None else None,
+            state=scrub_state(snapshot.state),
+            created_at=snapshot.created_at,
+        )
+        for snapshot in result.scalars().all()
+    ]
 
 
 @router.get(
@@ -121,11 +131,27 @@ async def compare_snapshots(
     if before is None or after is None:
         raise HTTPException(status_code=404, detail="Snapshot not found for execution")
 
+    changes = []
+    for change in _state_changes(before.state, after.state):
+        safe_before, safe_after = scrub_diff_values(
+            change.path,
+            change.before,
+            change.after,
+        )
+        changes.append(
+            StateChange(
+                path=scrub_text(change.path),
+                change=change.change,
+                before=safe_before,
+                after=safe_after,
+            )
+        )
+
     return SnapshotDiffResponse(
         execution_id=execution_id,
         before_snapshot_id=before_id,
         after_snapshot_id=after_id,
-        changes=_state_changes(before.state, after.state),
+        changes=changes,
     )
 
 
