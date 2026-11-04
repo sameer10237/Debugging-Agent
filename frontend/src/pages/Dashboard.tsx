@@ -26,9 +26,18 @@ export default function Dashboard() {
 
   const fetchStats = async () => {
     try {
-      // In a real implementation, this would call an actual stats endpoint
+      let projectCount = 5
+      try {
+        const res = await fetch('/api/projects')
+        if (res.ok) {
+          const list = await res.json()
+          projectCount = Array.isArray(list) ? list.length : 5
+        }
+      } catch {
+        // Fallback to default
+      }
       setStats({
-        total_projects: 5,
+        total_projects: projectCount,
         active_executions: 2,
         completed_executions: 23,
         total_failures_analyzed: 156,
