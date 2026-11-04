@@ -58,3 +58,50 @@ async def test_test_run_failures_relationship_and_cascade(async_db_session):
 
     res_fail = await async_db_session.execute(select(Failure).where(Failure.test_run_id == test_run.id))
     assert res_fail.scalars().first() is None
+
+
+@pytest.mark.asyncio
+async def test_execution_analysis_proposed_fix_cascade(async_db_session):
+    """Verify that deleting an Execution cascades down to Analysis and ProposedFix."""
+    from app.models import Analysis, Execution, ProposedFix
+
+    project = Project(name="cascade-analysis-project")
+    async_db_session.add(project)
+    await async_db_session.flush()
+
+    execution = Execution(project_id=project.id)
+    async_db_session.add(execution)
+    await async_db_session.flush()
+
+    analysis = Analysis(
+        execution_id=execution.id,
+        project_id=project.id,
+        root_cause="IndexError in loop",
+    )
+    async_db_session.add(analysis)
+    await async_db_session.flush()
+
+    fix = ProposedFix(
+        analysis_id=analysis.id,
+        file_path="main.py",
+        change_description="Fix loop boundary condition",
+    )
+    async_db_session.add(fix)
+    await async_db_session.commit()
+
+    # Verify relationships
+    res_exec = await async_db_session.execute(select(Execution).where(Execution.id == execution.id))
+    loaded_exec = res_exec.scalars().first()
+    assert loaded_exec.analysis is not None
+    assert len(loaded_exec.analysis.proposed_fixes) == 1
+    assert loaded_exec.analysis.proposed_fixes[0].analysis.id == analysis.id
+
+    # Delete Execution and verify Analysis + ProposedFix are cascaded
+    await async_db_session.delete(loaded_exec)
+    await async_db_session.commit()
+
+    res_an = await async_db_session.execute(select(Analysis).where(Analysis.id == analysis.id))
+    assert res_an.scalars().first() is None
+
+    res_fix = await async_db_session.execute(select(ProposedFix).where(ProposedFix.id == fix.id))
+    assert res_fix.scalars().first() is None

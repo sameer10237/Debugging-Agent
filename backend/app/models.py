@@ -19,9 +19,6 @@ class User(Base):
     password_hash = Column(String(512), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    # Relationships
-    analysis = relationship("Analysis", back_populates="proposed_fixes")
-
 
 class ExecutionStatusEnum(str, enum.Enum):
     """Execution status enumeration."""
@@ -216,3 +213,6 @@ class ProposedFix(Base):
     risk_level = Column(String(50), nullable=True)  # low, medium, high
     regression_tests = Column(JSON, nullable=True, default=list)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    analysis = relationship("Analysis", back_populates="proposed_fixes")
