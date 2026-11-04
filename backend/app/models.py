@@ -79,7 +79,7 @@ class Execution(Base):
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
-    execution_metadata = Column("metadata", JSON, nullable=True, default={})
+    execution_metadata = Column("metadata", JSON, nullable=True, default=dict)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -178,11 +178,11 @@ class Analysis(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
     failure_type = Column(Enum(FailureTypeEnum), nullable=True)
     root_cause = Column(Text, nullable=True)
-    evidence = Column(JSON, nullable=True, default=[])
-    affected_files = Column(JSON, nullable=True, default=[])
-    affected_functions = Column(JSON, nullable=True, default=[])
+    evidence = Column(JSON, nullable=True, default=list)
+    affected_files = Column(JSON, nullable=True, default=list)
+    affected_functions = Column(JSON, nullable=True, default=list)
     confidence = Column(Integer, nullable=True)  # 0-100
-    recommendations = Column(JSON, nullable=True, default=[])
+    recommendations = Column(JSON, nullable=True, default=list)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships
@@ -201,5 +201,5 @@ class ProposedFix(Base):
     code_before = Column(Text, nullable=True)
     code_after = Column(Text, nullable=True)
     risk_level = Column(String(50), nullable=True)  # low, medium, high
-    regression_tests = Column(JSON, nullable=True, default=[])
+    regression_tests = Column(JSON, nullable=True, default=list)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
