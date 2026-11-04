@@ -7,11 +7,82 @@ import './App.css'
 
 type User = { id: string; email: string; full_name: string }
 
-function DemoProject() {
+function ProjectDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const name = id === 'demo-api' ? 'payments-api' : 'identity-service'
-  return <div className="demo-project"><span className="eyebrow">Demo project</span><h1>{name}</h1><p>Review the repository signal, launch the five-agent analysis, and inspect the generated engineering report.</p><div className="demo-project-grid"><div><strong>12</strong><span>test cases</span></div><div><strong>3</strong><span>known risks</span></div><div><strong>5</strong><span>analysis agents</span></div></div><button className="btn btn-primary" onClick={() => navigate('/executions/demo-execution')}>Run demo analysis</button></div>
+  const [project, setProject] = useState<{ id: string; name: string; description?: string; repository_url?: string } | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [starting, setStarting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const isDemo = id?.startsWith('demo-')
+
+  useEffect(() => {
+    if (isDemo) {
+      const name = id === 'demo-api' ? 'payments-api' : 'identity-service'
+      setProject({ id: id || 'demo-project', name, description: 'Pre-configured demo repository environment', repository_url: 'Demo workspace' })
+      setLoading(false)
+      return
+    }
+
+    fetch(`/api/projects/${id}`)
+      .then(async (res) => {
+        if (!res.ok) throw new Error('Project not found')
+        return res.json()
+      })
+      .then((data) => setProject(data))
+      .catch((err) => setError(err instanceof Error ? err.message : 'Failed to load project'))
+      .finally(() => setLoading(false))
+  }, [id, isDemo])
+
+  const runAnalysis = async () => {
+    if (isDemo) {
+      navigate('/executions/demo-execution')
+      return
+    }
+
+    setStarting(true)
+    setError(null)
+    try {
+      const res = await fetch('/api/executions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          project_id: id,
+          test_framework: 'pytest',
+        }),
+      })
+      if (!res.ok) {
+        const payload = await res.json().catch(() => null)
+        throw new Error(payload?.detail || 'Failed to start execution')
+      }
+      const data = await res.json()
+      navigate(`/executions/${data.id}`)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to start execution')
+    } finally {
+      setStarting(false)
+    }
+  }
+
+  if (loading) return <div className="loading-state">Loading project details...</div>
+
+  return (
+    <div className="demo-project">
+      <span className="eyebrow">{isDemo ? 'Demo project' : 'Active project'}</span>
+      <h1>{project?.name || 'Unknown Project'}</h1>
+      <p>{project?.description || 'Review the repository signal, launch the multi-agent analysis, and inspect the generated engineering report.'}</p>
+      {error && <div className="alert alert-error">{error}</div>}
+      <div className="demo-project-grid">
+        <div><strong>{isDemo ? '12' : 'pytest'}</strong><span>{isDemo ? 'test cases' : 'framework'}</span></div>
+        <div><strong>{isDemo ? '3' : 'READY'}</strong><span>{isDemo ? 'known risks' : 'status'}</span></div>
+        <div><strong>5</strong><span>analysis agents</span></div>
+      </div>
+      <button className="btn btn-primary" onClick={runAnalysis} disabled={starting}>
+        {starting ? 'Launching Agents...' : isDemo ? 'Run demo analysis' : 'Run Full Analysis'}
+      </button>
+    </div>
+  )
 }
 
 function AuthScreen({ onAuthenticated }: { onAuthenticated: (token: string, user: User) => void }) {
@@ -113,7 +184,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/projects" element={<ProjectList />} />
-            <Route path="/projects/:id" element={<DemoProject />} />
+            <Route path="/projects/:id" element={<ProjectDetail />} />
             <Route path="/executions/:id" element={<ExecutionDetail />} />
           </Routes>
         </main>
