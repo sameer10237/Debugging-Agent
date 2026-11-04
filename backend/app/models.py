@@ -51,6 +51,15 @@ class FailureTypeEnum(str, enum.Enum):
     PERFORMANCE_ERROR = "performance_error"
     UNKNOWN = "unknown"
 
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower().replace(" ", "_").replace("-", "_")
+            for member in cls:
+                if member.value == normalized or member.name.lower() == normalized:
+                    return member
+        return cls.UNKNOWN
+
 
 class Project(Base):
     """Represents a software project being debugged."""
