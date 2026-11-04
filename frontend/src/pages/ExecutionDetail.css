@@ -1,0 +1,199 @@
+.execution-detail {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.execution-detail h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  color: #111827;
+}
+
+.execution-header {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 2rem;
+}
+
+.info-card {
+  background: white;
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e5e7eb;
+}
+
+.info-label {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: #6b7280;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.4rem;
+}
+
+.info-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.badge-completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.badge-running {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.badge-failed {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.badge-pending {
+  background: #f3f4f6;
+  color: #4b5563;
+}
+
+.agent-timeline {
+  background: white;
+  border-radius: 10px;
+  padding: 1.75rem;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.agent-timeline h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #1f2937;
+}
+
+.timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.timeline-item {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.timeline-marker {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 0.875rem;
+}
+
+.timeline-marker.completed {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.timeline-marker.pending {
+  background: #fef3c7;
+  color: #b45309;
+}
+
+.timeline-content {
+  flex: 1;
+}
+
+.timeline-title {
+  font-weight: 600;
+  color: #111827;
+  text-transform: capitalize;
+}
+
+.timeline-duration {
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+.findings {
+  background: white;
+  border-radius: 10px;
+  padding: 1.75rem;
+  border: 1px solid #e5e7eb;
+  margin-bottom: 2rem;
+}
+
+.findings h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin-bottom: 1.25rem;
+  color: #1f2937;
+}
+
+.findings-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1.25rem;
+  margin-bottom: 2rem;
+}
+
+.finding-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 1.25rem;
+  text-align: center;
+}
+
+.finding-icon {
+  font-size: 1.75rem;
+  margin-bottom: 0.5rem;
+}
+
+.finding-title {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.finding-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #111827;
+}
+
+.root-causes h3 {
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #374151;
+}
+
+.root-causes ul {
+  list-style-type: disc;
+  padding-left: 1.5rem;
+  color: #4b5563;
+}
+
+.root-causes li {
+  margin-bottom: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-top: 2rem;
+}

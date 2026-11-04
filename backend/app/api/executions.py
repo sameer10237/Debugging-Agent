@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from typing import Optional, Dict, Any, List
 from uuid import UUID
-from app.database import get_db
+from app.database import async_session, get_db
 from app.models import Execution, Project, ExecutionStatusEnum
 from app.agents import create_orchestrator
 from sqlalchemy import select
@@ -64,7 +64,7 @@ async def start_execution(
     
     # Schedule workflow (in production, use a task queue)
     import asyncio
-    asyncio.create_task(_run_workflow(str(execution.id), request, db))
+    asyncio.create_task(_run_workflow(str(execution.id), request))
     
     return execution
 
@@ -104,59 +104,60 @@ async def get_execution_results(
         "status": execution.status,
         "created_at": execution.created_at.isoformat(),
         "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
-        "metadata": execution.metadata or {},
+        "metadata": execution.execution_metadata or {},
         "error": execution.error_message,
     }
 
 
-async def _run_workflow(execution_id: str, request: ExecutionRequest, db: AsyncSession):
-    """Run the debugging workflow (background task)."""
-    try:
-        # Create orchestrator
-        orchestrator = create_orchestrator()
-        
-        # Prepare workflow
-        workflow_config = {
-            "initial_state": {
-                "project_id": str(request.project_id),
-                "test_framework": request.test_framework,
-                "test_paths": request.test_paths or [],
-            },
-            "steps": [
-                {"agent": "testing_agent", "update_state": True},
-                {"agent": "debugging_agent", "update_state": True},
-                {"agent": "coding_agent", "update_state": True},
-                {"agent": "architect_agent", "update_state": True},
-                {"agent": "project_manager_agent", "update_state": True},
-            ]
-        }
-        
-        # Execute workflow
-        logger.info(f"Starting workflow execution: {execution_id}")
-        results = await orchestrator.execute_workflow(workflow_config)
-        
-        # Update execution status
-        stmt = select(Execution).where(Execution.id == UUID(execution_id))
-        result = await db.execute(stmt)
-        execution = result.scalars().first()
-        
-        if execution:
-            execution.status = ExecutionStatusEnum.COMPLETED
-            execution.metadata = {
-                **(execution.metadata or {}),
-                "workflow_results": results,
+async def _run_workflow(execution_id: str, request: ExecutionRequest):
+    """Run the debugging workflow (background task) using an independent session."""
+    async with async_session() as db:
+        try:
+            # Create orchestrator
+            orchestrator = create_orchestrator()
+
+            # Prepare workflow
+            workflow_config = {
+                "initial_state": {
+                    "project_id": str(request.project_id),
+                    "test_framework": request.test_framework,
+                    "test_paths": request.test_paths or [],
+                },
+                "steps": [
+                    {"agent": "testing_agent", "update_state": True},
+                    {"agent": "debugging_agent", "update_state": True},
+                    {"agent": "coding_agent", "update_state": True},
+                    {"agent": "architect_agent", "update_state": True},
+                    {"agent": "project_manager_agent", "update_state": True},
+                ],
             }
-            await db.commit()
-            logger.info(f"Workflow completed: {execution_id}")
-        
-    except Exception as e:
-        logger.error(f"Workflow failed: {str(e)}")
-        
-        stmt = select(Execution).where(Execution.id == UUID(execution_id))
-        result = await db.execute(stmt)
-        execution = result.scalars().first()
-        
-        if execution:
-            execution.status = ExecutionStatusEnum.FAILED
-            execution.error_message = str(e)
-            await db.commit()
+
+            # Execute workflow
+            logger.info(f"Starting workflow execution: {execution_id}")
+            results = await orchestrator.execute_workflow(workflow_config)
+
+            # Update execution status
+            stmt = select(Execution).where(Execution.id == UUID(execution_id))
+            result = await db.execute(stmt)
+            execution = result.scalars().first()
+
+            if execution:
+                execution.status = ExecutionStatusEnum.COMPLETED
+                execution.execution_metadata = {
+                    **(execution.execution_metadata or {}),
+                    "workflow_results": results,
+                }
+                await db.commit()
+                logger.info(f"Workflow completed: {execution_id}")
+
+        except Exception as e:
+            logger.error(f"Workflow failed: {str(e)}")
+
+            stmt = select(Execution).where(Execution.id == UUID(execution_id))
+            result = await db.execute(stmt)
+            execution = result.scalars().first()
+
+            if execution:
+                execution.status = ExecutionStatusEnum.FAILED
+                execution.error_message = str(e)
+                await db.commit()

@@ -2,8 +2,8 @@
 
 from typing import Optional, Any, Dict, List
 from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate, PromptTemplate
-from langchain.output_parsers import PydanticOutputParser, JsonOutputParser
+from langchain_core.prompts import ChatPromptTemplate, PromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser, JsonOutputParser
 from pydantic import BaseModel, Field
 from app.config import settings
 import logging

@@ -29,15 +29,18 @@ export default function ExecutionMonitor({ executionId }: ExecutionMonitorProps)
     }
 
     ws.onmessage = (event) => {
-      const message: AgentUpdate = JSON.parse(event.data)
-      setUpdates(prev => {
-        const nextUpdates = [...prev, message]
-        const agents = ['testing_agent', 'debugging_agent', 'coding_agent', 'architect_agent', 'project_manager_agent']
-        const completedAgents = new Set(nextUpdates.filter(u => u.status === 'completed').map(u => u.agent))
-        setOverallProgress((completedAgents.size / agents.length) * 100)
-        return nextUpdates
-      })
-
+      try {
+        const message: AgentUpdate = JSON.parse(event.data)
+        setUpdates(prev => {
+          const nextUpdates = [...prev, message]
+          const agents = ['testing_agent', 'debugging_agent', 'coding_agent', 'architect_agent', 'project_manager_agent']
+          const completedAgents = new Set(nextUpdates.filter(u => u.status === 'completed').map(u => u.agent))
+          setOverallProgress((completedAgents.size / agents.length) * 100)
+          return nextUpdates
+        })
+      } catch (err) {
+        console.warn('Non-JSON WebSocket message received:', event.data)
+      }
     }
 
     ws.onerror = (error) => {
@@ -107,7 +110,7 @@ export default function ExecutionMonitor({ executionId }: ExecutionMonitorProps)
               <span className="agent-icon">{getAgentIcon(update.agent)}</span>
               <div className="agent-info">
                 <div className="agent-name">{update.agent.replace(/_/g, ' ')}</div>
-                <div className="agent-time">{new Date(update.timestamp).toLocaleTimeString()}</div>
+                <div className="agent-time">{new Date(update.timestamp || Date.now()).toLocaleTimeString()}</div>
               </div>
             </div>
             <div className="update-status">

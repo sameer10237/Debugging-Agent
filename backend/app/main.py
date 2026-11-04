@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from contextlib import asynccontextmanager
 from app.config import settings
 from app.database import init_db, close_db
-from app.api import auth, health, projects, executions
+from app.api import auth, health, projects, executions, simulation
 from app.exceptions import AppException, exception_handler, validation_exception_handler, generic_exception_handler, ErrorLoggingMiddleware
 from app.websocket_manager import get_ws_manager
 import logging
@@ -59,6 +59,7 @@ app.include_router(health.router, prefix="/api", tags=["health"])
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(projects.router, prefix="/api", tags=["projects"])
 app.include_router(executions.router, prefix="/api", tags=["executions"])
+app.include_router(simulation.router, prefix="/api", tags=["simulation"])
 
 
 # WebSocket endpoint for real-time updates

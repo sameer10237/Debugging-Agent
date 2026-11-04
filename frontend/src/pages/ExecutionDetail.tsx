@@ -1,3 +1,6 @@
+import './ExecutionDetail.css'
+import AnalysisResults from '../components/AnalysisResults'
+import ExecutionMonitor from '../components/ExecutionMonitor'
 import { useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
 
@@ -9,19 +12,60 @@ export default function ExecutionDetail() {
   const [fixesApplied, setFixesApplied] = useState(false)
 
   useEffect(() => {
+    if (!id) return
     if (id === 'demo-execution') {
-      setExecution({ id, status: 'completed', metadata: { project_id: 'identity-service', workflow_results: { final_state: { test_results: { failed: 2 }, proposed_fixes: [{}, {}], root_causes: ['Missing null-check in auth service', 'Incorrect error status code'], confidence: 95 }, results: { testing_agent: { status: 'completed' }, debugging_agent: { status: 'completed' }, coding_agent: { status: 'completed' }, architect_agent: { status: 'completed' }, project_manager_agent: { status: 'completed' } } } } })
+      setExecution({
+        id,
+        status: 'completed',
+        metadata: {
+          project_id: 'identity-service',
+          workflow_results: {
+            final_state: {
+              test_results: { failed: 2 },
+              proposed_fixes: [{}, {}],
+              root_causes: ['Missing null-check in auth service', 'Incorrect error status code'],
+              confidence: 95,
+            },
+            results: {
+              testing_agent: { status: 'completed' },
+              debugging_agent: { status: 'completed' },
+              coding_agent: { status: 'completed' },
+              architect_agent: { status: 'completed' },
+              project_manager_agent: { status: 'completed' },
+            },
+          },
+        },
+      })
       setLoading(false)
       return
     }
-    fetch(`/api/executions/${id}/results`)
-      .then(async response => {
+
+    let isMounted = true
+    const fetchResults = async () => {
+      try {
+        const response = await fetch(`/api/executions/${id}/results`)
         if (!response.ok) throw new Error('Execution not found')
-        return response.json()
-      })
-      .then(setExecution)
-      .catch(err => setError(err instanceof Error ? err.message : 'Unable to load execution'))
-      .finally(() => setLoading(false))
+        const data = await response.json()
+        if (isMounted) {
+          setExecution(data)
+          setError(null)
+        }
+      } catch (err) {
+        if (isMounted) setError(err instanceof Error ? err.message : 'Unable to load execution')
+      } finally {
+        if (isMounted) setLoading(false)
+      }
+    }
+
+    fetchResults()
+    const interval = setInterval(() => {
+      fetchResults()
+    }, 3000)
+
+    return () => {
+      isMounted = false
+      clearInterval(interval)
+    }
   }, [id])
 
   if (loading) return <div className="loading">Loading execution details...</div>
@@ -61,6 +105,10 @@ export default function ExecutionDetail() {
         </div>
       </div>
 
+      {(execution.status === 'running' || execution.status === 'pending') && id && id !== 'demo-execution' && (
+        <ExecutionMonitor executionId={id} />
+      )}
+
       <section className="agent-timeline">
         <h2>Agent Execution Timeline</h2>
         <div className="timeline">
@@ -75,6 +123,14 @@ export default function ExecutionDetail() {
           ))}
         </div>
       </section>
+
+      {finalState?.analyses && finalState.analyses.length > 0 && (
+        <AnalysisResults
+          analyses={finalState.analyses}
+          securityFindings={finalState.security_findings || []}
+          overallRiskLevel={finalState.overall_risk_level || 'MEDIUM'}
+        />
+      )}
 
       <section className="findings" id="findings">
         <h2>Analysis Findings</h2>

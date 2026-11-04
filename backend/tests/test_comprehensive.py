@@ -1,7 +1,7 @@
 """Comprehensive test suite for backend."""
 
 import pytest
-from httpx import AsyncClient
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.database import Base
 from app.main import app
@@ -42,10 +42,18 @@ async def test_session(test_db):
 
 
 @pytest.fixture
-async def client():
-    """Create test client."""
-    async with AsyncClient(app=app, base_url="http://test") as ac:
+async def client(test_db):
+    """Create test client backed by test database."""
+    from app.database import get_db
+    session_factory = async_sessionmaker(test_db, class_=AsyncSession, expire_on_commit=False)
+    async def override_get_db():
+        async with session_factory() as session:
+            yield session
+    app.dependency_overrides[get_db] = override_get_db
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
         yield ac
+    app.dependency_overrides.pop(get_db, None)
 
 
 # ============================================================================

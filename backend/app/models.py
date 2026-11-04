@@ -1,23 +1,28 @@
 """SQLAlchemy models for the debugging system."""
 
-from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, JSON, Boolean, Integer
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, Uuid
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 import enum
+
+
+def utc_now() -> datetime:
+    """Return the current timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
 
 
 class User(Base):
     """Registered application user."""
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     password_hash = Column(String(512), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
 
 class ExecutionStatusEnum(str, enum.Enum):
@@ -51,17 +56,26 @@ class FailureTypeEnum(str, enum.Enum):
     PERFORMANCE_ERROR = "performance_error"
     UNKNOWN = "unknown"
 
+    @classmethod
+    def _missing_(cls, value):
+        if isinstance(value, str):
+            normalized = value.strip().lower().replace(" ", "_").replace("-", "_")
+            for member in cls:
+                if member.value == normalized or member.name.lower() == normalized:
+                    return member
+        return cls.UNKNOWN
+
 
 class Project(Base):
     """Represents a software project being debugged."""
     __tablename__ = "projects"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     name = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     repository_url = Column(String(512), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # Relationships
     executions = relationship("Execution", back_populates="project", cascade="all, delete-orphan")
@@ -73,27 +87,62 @@ class Execution(Base):
     """Represents a debugging workflow execution."""
     __tablename__ = "executions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
-    execution_metadata = Column("metadata", JSON, nullable=True, default={})
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    execution_metadata = Column("metadata", JSON, nullable=True, default=dict)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     project = relationship("Project", back_populates="executions")
     agents = relationship("AgentExecution", back_populates="execution", cascade="all, delete-orphan")
-    analysis = relationship("Analysis", uselist=False, back_populates="execution")
+    analysis = relationship("Analysis", uselist=False, back_populates="execution", cascade="all, delete-orphan", lazy="selectin")
+    snapshots = relationship(
+        "ExecutionSnapshot",
+        back_populates="execution",
+        cascade="all, delete-orphan",
+        order_by="ExecutionSnapshot.created_at, ExecutionSnapshot.id",
+    )
+    test_runs = relationship(
+        "TestRun",
+        back_populates="execution",
+        cascade="all, delete-orphan",
+        lazy="selectin",
+    )
+
+    def __init__(self, **kwargs):
+        if "metadata" in kwargs and "execution_metadata" not in kwargs:
+            kwargs["execution_metadata"] = kwargs.pop("metadata")
+        super().__init__(**kwargs)
+
+
+class ExecutionSnapshot(Base):
+    """A point-in-time JSON state captured during an execution."""
+    __tablename__ = "execution_snapshots"
+
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    execution_id = Column(
+        Uuid,
+        ForeignKey("executions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    label = Column(String(255), nullable=True)
+    state = Column(JSON, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
+
+    execution = relationship("Execution", back_populates="snapshots")
 
 
 class AgentExecution(Base):
     """Represents execution of a specific agent."""
     __tablename__ = "agent_executions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, index=True)
     agent_name = Column(String(100), nullable=False)  # testing, debugging, coding, architect, project_manager
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
     input_data = Column(JSON, nullable=True)
@@ -101,7 +150,7 @@ class AgentExecution(Base):
     error = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     execution = relationship("Execution", back_populates="agents")
@@ -110,9 +159,11 @@ class AgentExecution(Base):
 class TestRun(Base):
     """Represents a test execution."""
     __tablename__ = "test_runs"
+    __test__ = False
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=True, index=True)
     test_file = Column(String(512), nullable=False)
     test_name = Column(String(255), nullable=False)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
@@ -121,56 +172,70 @@ class TestRun(Base):
     error = Column(Text, nullable=True)
     traceback = Column(Text, nullable=True)
     duration = Column(Integer, nullable=True)  # milliseconds
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     project = relationship("Project", back_populates="tests")
+    execution = relationship("Execution", back_populates="test_runs")
+    failures = relationship("Failure", back_populates="test_run", cascade="all, delete-orphan", lazy="selectin")
 
 
 class Failure(Base):
     """Represents a detected test failure."""
     __tablename__ = "failures"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    test_run_id = Column(UUID(as_uuid=True), ForeignKey("test_runs.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    test_run_id = Column(
+        Uuid,
+        ForeignKey("test_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     failure_type = Column(Enum(FailureTypeEnum), default=FailureTypeEnum.UNKNOWN, nullable=False)
     message = Column(Text, nullable=False)
     expected = Column(Text, nullable=True)
     actual = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    # Relationships
+    test_run = relationship("TestRun", back_populates="failures")
 
 
 class Analysis(Base):
     """Represents debugging analysis results."""
     __tablename__ = "analyses"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id"), nullable=False, unique=True)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     failure_type = Column(Enum(FailureTypeEnum), nullable=True)
     root_cause = Column(Text, nullable=True)
-    evidence = Column(JSON, nullable=True, default=[])
-    affected_files = Column(JSON, nullable=True, default=[])
-    affected_functions = Column(JSON, nullable=True, default=[])
+    evidence = Column(JSON, nullable=True, default=list)
+    affected_files = Column(JSON, nullable=True, default=list)
+    affected_functions = Column(JSON, nullable=True, default=list)
     confidence = Column(Integer, nullable=True)  # 0-100
-    recommendations = Column(JSON, nullable=True, default=[])
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    recommendations = Column(JSON, nullable=True, default=list)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     execution = relationship("Execution", back_populates="analysis")
     project = relationship("Project", back_populates="analyses")
+    proposed_fixes = relationship("ProposedFix", back_populates="analysis", cascade="all, delete-orphan", lazy="selectin")
 
 
 class ProposedFix(Base):
     """Represents a proposed fix."""
     __tablename__ = "proposed_fixes"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    analysis_id = Column(UUID(as_uuid=True), ForeignKey("analyses.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    analysis_id = Column(Uuid, ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False, index=True)
     file_path = Column(String(512), nullable=False)
     change_description = Column(Text, nullable=False)
     code_before = Column(Text, nullable=True)
     code_after = Column(Text, nullable=True)
     risk_level = Column(String(50), nullable=True)  # low, medium, high
-    regression_tests = Column(JSON, nullable=True, default=[])
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    regression_tests = Column(JSON, nullable=True, default=list)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+
+    # Relationships
+    analysis = relationship("Analysis", back_populates="proposed_fixes")
