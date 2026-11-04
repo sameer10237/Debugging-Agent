@@ -93,6 +93,11 @@ class Execution(Base):
         order_by="ExecutionSnapshot.created_at, ExecutionSnapshot.id",
     )
 
+    def __init__(self, **kwargs):
+        if "metadata" in kwargs and "execution_metadata" not in kwargs:
+            kwargs["execution_metadata"] = kwargs.pop("metadata")
+        super().__init__(**kwargs)
+
 
 class ExecutionSnapshot(Base):
     """A point-in-time JSON state captured during an execution."""
