@@ -3,6 +3,7 @@
 from fastapi import Request, status
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from starlette.middleware.base import BaseHTTPMiddleware
 import logging
 import traceback
 from datetime import datetime
@@ -145,13 +146,10 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
     )
 
 
-class ErrorLoggingMiddleware:
+class ErrorLoggingMiddleware(BaseHTTPMiddleware):
     """Middleware for detailed request/response logging."""
 
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, request: Request, call_next):
+    async def dispatch(self, request: Request, call_next):
         # Log request
         logger.debug(
             f"{request.method} {request.url.path}",
