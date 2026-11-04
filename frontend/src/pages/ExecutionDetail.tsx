@@ -1,3 +1,4 @@
+import AnalysisResults from '../components/AnalysisResults'
 import ExecutionMonitor from '../components/ExecutionMonitor'
 import { useParams } from 'react-router-dom'
 import { useState, useEffect } from 'react'
@@ -121,6 +122,14 @@ export default function ExecutionDetail() {
           ))}
         </div>
       </section>
+
+      {finalState?.analyses && finalState.analyses.length > 0 && (
+        <AnalysisResults
+          analyses={finalState.analyses}
+          securityFindings={finalState.security_findings || []}
+          overallRiskLevel={finalState.overall_risk_level || 'MEDIUM'}
+        />
+      )}
 
       <section className="findings" id="findings">
         <h2>Analysis Findings</h2>
