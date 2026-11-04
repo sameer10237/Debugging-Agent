@@ -19,6 +19,9 @@ class User(Base):
     password_hash = Column(String(512), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
+    # Relationships
+    analysis = relationship("Analysis", back_populates="proposed_fixes")
+
 
 class ExecutionStatusEnum(str, enum.Enum):
     """Execution status enumeration."""
@@ -85,7 +88,7 @@ class Execution(Base):
     # Relationships
     project = relationship("Project", back_populates="executions")
     agents = relationship("AgentExecution", back_populates="execution", cascade="all, delete-orphan")
-    analysis = relationship("Analysis", uselist=False, back_populates="execution")
+    analysis = relationship("Analysis", uselist=False, back_populates="execution", cascade="all, delete-orphan", lazy="selectin")
     snapshots = relationship(
         "ExecutionSnapshot",
         back_populates="execution",
@@ -183,7 +186,7 @@ class Analysis(Base):
     __tablename__ = "analyses"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id"), nullable=False, unique=True)
+    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, unique=True)
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
     failure_type = Column(Enum(FailureTypeEnum), nullable=True)
     root_cause = Column(Text, nullable=True)
@@ -197,6 +200,7 @@ class Analysis(Base):
     # Relationships
     execution = relationship("Execution", back_populates="analysis")
     project = relationship("Project", back_populates="analyses")
+    proposed_fixes = relationship("ProposedFix", back_populates="analysis", cascade="all, delete-orphan", lazy="selectin")
 
 
 class ProposedFix(Base):
@@ -204,7 +208,7 @@ class ProposedFix(Base):
     __tablename__ = "proposed_fixes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    analysis_id = Column(UUID(as_uuid=True), ForeignKey("analyses.id"), nullable=False, index=True)
+    analysis_id = Column(UUID(as_uuid=True), ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False, index=True)
     file_path = Column(String(512), nullable=False)
     change_description = Column(Text, nullable=False)
     code_before = Column(Text, nullable=True)
