@@ -154,7 +154,7 @@ class TestRun(Base):
 
     # Relationships
     project = relationship("Project", back_populates="tests")
-    failures = relationship("Failure", back_populates="test_run", cascade="all, delete-orphan")
+    failures = relationship("Failure", back_populates="test_run", cascade="all, delete-orphan", lazy="selectin")
 
 
 class Failure(Base):
