@@ -2,7 +2,7 @@
 
 from app.agents.base import BaseAgent, AgentResult
 from typing import Any, Dict, Optional
-from datetime import datetime
+from datetime import datetime, timezone
 import subprocess
 import json
 import logging
@@ -150,7 +150,7 @@ class TestingAgent(BaseAgent):
                     "test_name": test_detail.get("name"),
                     "error": test_detail.get("error"),
                     "traceback": test_detail.get("traceback"),
-                    "timestamp": datetime.utcnow().isoformat()
+                    "timestamp": datetime.now(timezone.utc).isoformat()
                 })
 
         return failures

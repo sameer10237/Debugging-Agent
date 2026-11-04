@@ -5,7 +5,7 @@ import hashlib
 import hmac
 import json
 import secrets
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Annotated
 from uuid import UUID
 
@@ -69,7 +69,7 @@ def verify_password(password: str, stored_hash: str) -> bool:
 def create_token(user: User) -> str:
     payload = {
         "sub": str(user.id),
-        "exp": int((datetime.utcnow() + timedelta(minutes=settings.access_token_expire_minutes)).timestamp()),
+        "exp": int((datetime.now(timezone.utc) + timedelta(minutes=settings.access_token_expire_minutes)).timestamp()),
     }
     encoded = base64.urlsafe_b64encode(json.dumps(payload, separators=(",", ":")).encode()).decode().rstrip("=")
     signature = hmac.new(settings.secret_key.encode(), encoded.encode(), hashlib.sha256).hexdigest()
@@ -88,7 +88,7 @@ async def get_current_user(
         if not hmac.compare_digest(signature, expected_signature):
             raise ValueError
         payload = json.loads(base64.urlsafe_b64decode(encoded + "=="))
-        if int(payload["exp"]) < int(datetime.utcnow().timestamp()):
+        if int(payload["exp"]) < int(datetime.now(timezone.utc).timestamp()):
             raise ValueError
         user_id = UUID(payload["sub"])
     except (ValueError, KeyError, TypeError, json.JSONDecodeError):
