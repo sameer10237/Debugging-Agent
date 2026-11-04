@@ -1,8 +1,7 @@
 """SQLAlchemy models for the debugging system."""
 
-from sqlalchemy import Column, String, Text, DateTime, Enum, ForeignKey, JSON, Boolean, Integer
+from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, Uuid
 from sqlalchemy.orm import relationship
-from sqlalchemy.dialects.postgresql import UUID
 from app.database import Base
 from datetime import datetime
 from uuid import uuid4
@@ -13,7 +12,7 @@ class User(Base):
     """Registered application user."""
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     password_hash = Column(String(512), nullable=False)
@@ -65,7 +64,7 @@ class Project(Base):
     """Represents a software project being debugged."""
     __tablename__ = "projects"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     name = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     repository_url = Column(String(512), nullable=True)
@@ -82,8 +81,8 @@ class Execution(Base):
     """Represents a debugging workflow execution."""
     __tablename__ = "executions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
@@ -112,9 +111,9 @@ class ExecutionSnapshot(Base):
     """A point-in-time JSON state captured during an execution."""
     __tablename__ = "execution_snapshots"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     execution_id = Column(
-        UUID(as_uuid=True),
+        Uuid,
         ForeignKey("executions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -130,8 +129,8 @@ class AgentExecution(Base):
     """Represents execution of a specific agent."""
     __tablename__ = "agent_executions"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, index=True)
     agent_name = Column(String(100), nullable=False)  # testing, debugging, coding, architect, project_manager
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
     input_data = Column(JSON, nullable=True)
@@ -149,8 +148,8 @@ class TestRun(Base):
     """Represents a test execution."""
     __tablename__ = "test_runs"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     test_file = Column(String(512), nullable=False)
     test_name = Column(String(255), nullable=False)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
@@ -170,9 +169,9 @@ class Failure(Base):
     """Represents a detected test failure."""
     __tablename__ = "failures"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(Uuid, primary_key=True, default=uuid4)
     test_run_id = Column(
-        UUID(as_uuid=True),
+        Uuid,
         ForeignKey("test_runs.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
@@ -191,9 +190,9 @@ class Analysis(Base):
     """Represents debugging analysis results."""
     __tablename__ = "analyses"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    execution_id = Column(UUID(as_uuid=True), ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, unique=True)
-    project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=False, unique=True)
+    project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
     failure_type = Column(Enum(FailureTypeEnum), nullable=True)
     root_cause = Column(Text, nullable=True)
     evidence = Column(JSON, nullable=True, default=list)
@@ -213,8 +212,8 @@ class ProposedFix(Base):
     """Represents a proposed fix."""
     __tablename__ = "proposed_fixes"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    analysis_id = Column(UUID(as_uuid=True), ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False, index=True)
+    id = Column(Uuid, primary_key=True, default=uuid4)
+    analysis_id = Column(Uuid, ForeignKey("analyses.id", ondelete="CASCADE"), nullable=False, index=True)
     file_path = Column(String(512), nullable=False)
     change_description = Column(Text, nullable=False)
     code_before = Column(Text, nullable=True)
