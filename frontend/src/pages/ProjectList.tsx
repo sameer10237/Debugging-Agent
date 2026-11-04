@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 
 interface Project {
@@ -20,7 +20,7 @@ export default function ProjectList() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const loadProjects = async () => {
+  const loadProjects = useCallback(async () => {
     if (isDemo) {
       setLoading(false)
       return
@@ -35,11 +35,11 @@ export default function ProjectList() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [isDemo])
 
   useEffect(() => {
     loadProjects()
-  }, [])
+  }, [loadProjects])
 
   const handleCreateProject = async () => {
     if (!newProject.name.trim()) {
