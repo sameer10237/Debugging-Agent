@@ -125,3 +125,39 @@ def test_foreign_keys_have_cascade_delete():
     for model, target_col in tables_and_fks:
         fk = next(f for f in model.__table__.foreign_keys if f.target_fullname == target_col)
         assert fk.ondelete == "CASCADE", f"FK on {model.__tablename__} -> {target_col} missing ondelete='CASCADE'"
+
+
+@pytest.mark.asyncio
+async def test_execution_test_runs_relationship_and_cascade(async_db_session):
+    """Verify that TestRun can be associated with Execution and cascades on delete."""
+    from app.models import Execution, Project, TestRun
+
+    project = Project(name="testrun-exec-project")
+    async_db_session.add(project)
+    await async_db_session.flush()
+
+    execution = Execution(project_id=project.id)
+    async_db_session.add(execution)
+    await async_db_session.flush()
+
+    test_run = TestRun(
+        project_id=project.id,
+        execution_id=execution.id,
+        test_file="test_math.py",
+        test_name="test_square",
+    )
+    async_db_session.add(test_run)
+    await async_db_session.commit()
+
+    # Verify relationship
+    res = await async_db_session.execute(select(Execution).where(Execution.id == execution.id))
+    loaded_exec = res.scalars().first()
+    assert len(loaded_exec.test_runs) == 1
+    assert loaded_exec.test_runs[0].execution.id == execution.id
+
+    # Cascade delete
+    await async_db_session.delete(loaded_exec)
+    await async_db_session.commit()
+
+    res_run = await async_db_session.execute(select(TestRun).where(TestRun.id == test_run.id))
+    assert res_run.scalars().first() is None

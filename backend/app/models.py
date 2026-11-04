@@ -89,7 +89,6 @@ class Execution(Base):
 
     id = Column(Uuid, primary_key=True, default=uuid4)
     project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
-    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=True, index=True)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
@@ -163,6 +162,7 @@ class TestRun(Base):
 
     id = Column(Uuid, primary_key=True, default=uuid4)
     project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
+    execution_id = Column(Uuid, ForeignKey("executions.id", ondelete="CASCADE"), nullable=True, index=True)
     test_file = Column(String(512), nullable=False)
     test_name = Column(String(255), nullable=False)
     status = Column(Enum(ExecutionStatusEnum), default=ExecutionStatusEnum.PENDING, nullable=False)
