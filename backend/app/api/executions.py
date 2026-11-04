@@ -104,7 +104,7 @@ async def get_execution_results(
         "status": execution.status,
         "created_at": execution.created_at.isoformat(),
         "completed_at": execution.completed_at.isoformat() if execution.completed_at else None,
-        "metadata": execution.metadata or {},
+        "metadata": execution.execution_metadata or {},
         "error": execution.error_message,
     }
 
@@ -142,8 +142,8 @@ async def _run_workflow(execution_id: str, request: ExecutionRequest, db: AsyncS
         
         if execution:
             execution.status = ExecutionStatusEnum.COMPLETED
-            execution.metadata = {
-                **(execution.metadata or {}),
+            execution.execution_metadata = {
+                **(execution.execution_metadata or {}),
                 "workflow_results": results,
             }
             await db.commit()
