@@ -105,3 +105,23 @@ async def test_execution_analysis_proposed_fix_cascade(async_db_session):
 
     res_fix = await async_db_session.execute(select(ProposedFix).where(ProposedFix.id == fix.id))
     assert res_fix.scalars().first() is None
+
+
+def test_foreign_keys_have_cascade_delete():
+    """Verify that child table foreign keys are configured with ondelete='CASCADE'."""
+    from app.models import AgentExecution, Analysis, Execution, ExecutionSnapshot, Failure, ProposedFix, TestRun
+
+    tables_and_fks = [
+        (Execution, "projects.id"),
+        (AgentExecution, "executions.id"),
+        (TestRun, "projects.id"),
+        (Failure, "test_runs.id"),
+        (Analysis, "executions.id"),
+        (Analysis, "projects.id"),
+        (ProposedFix, "analyses.id"),
+        (ExecutionSnapshot, "executions.id"),
+    ]
+
+    for model, target_col in tables_and_fks:
+        fk = next(f for f in model.__table__.foreign_keys if f.target_fullname == target_col)
+        assert fk.ondelete == "CASCADE", f"FK on {model.__tablename__} -> {target_col} missing ondelete='CASCADE'"
