@@ -3,9 +3,15 @@
 from sqlalchemy import Boolean, Column, DateTime, Enum, ForeignKey, Integer, JSON, String, Text, Uuid
 from sqlalchemy.orm import relationship
 from app.database import Base
-from datetime import datetime
+from datetime import datetime, timezone
 from uuid import uuid4
 import enum
+
+
+def utc_now() -> datetime:
+    """Return the current timezone-aware UTC datetime."""
+    return datetime.now(timezone.utc)
+
 
 
 class User(Base):
@@ -16,7 +22,7 @@ class User(Base):
     email = Column(String(255), unique=True, nullable=False, index=True)
     full_name = Column(String(255), nullable=False)
     password_hash = Column(String(512), nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
 
 class ExecutionStatusEnum(str, enum.Enum):
@@ -68,8 +74,8 @@ class Project(Base):
     name = Column(String(255), unique=True, nullable=False, index=True)
     description = Column(Text, nullable=True)
     repository_url = Column(String(512), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
+    updated_at = Column(DateTime, default=utc_now, onupdate=utc_now)
 
     # Relationships
     executions = relationship("Execution", back_populates="project", cascade="all, delete-orphan")
@@ -88,7 +94,7 @@ class Execution(Base):
     completed_at = Column(DateTime, nullable=True)
     error_message = Column(Text, nullable=True)
     execution_metadata = Column("metadata", JSON, nullable=True, default=dict)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     project = relationship("Project", back_populates="executions")
@@ -120,7 +126,7 @@ class ExecutionSnapshot(Base):
     )
     label = Column(String(255), nullable=True)
     state = Column(JSON, nullable=False)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    created_at = Column(DateTime, default=utc_now, nullable=False, index=True)
 
     execution = relationship("Execution", back_populates="snapshots")
 
@@ -138,7 +144,7 @@ class AgentExecution(Base):
     error = Column(Text, nullable=True)
     started_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     execution = relationship("Execution", back_populates="agents")
@@ -158,7 +164,7 @@ class TestRun(Base):
     error = Column(Text, nullable=True)
     traceback = Column(Text, nullable=True)
     duration = Column(Integer, nullable=True)  # milliseconds
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     project = relationship("Project", back_populates="tests")
@@ -180,7 +186,7 @@ class Failure(Base):
     message = Column(Text, nullable=False)
     expected = Column(Text, nullable=True)
     actual = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     test_run = relationship("TestRun", back_populates="failures")
@@ -200,7 +206,7 @@ class Analysis(Base):
     affected_functions = Column(JSON, nullable=True, default=list)
     confidence = Column(Integer, nullable=True)  # 0-100
     recommendations = Column(JSON, nullable=True, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     execution = relationship("Execution", back_populates="analysis")
@@ -220,7 +226,7 @@ class ProposedFix(Base):
     code_after = Column(Text, nullable=True)
     risk_level = Column(String(50), nullable=True)  # low, medium, high
     regression_tests = Column(JSON, nullable=True, default=list)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=utc_now, nullable=False)
 
     # Relationships
     analysis = relationship("Analysis", back_populates="proposed_fixes")
