@@ -1,3 +1,4 @@
+import './ExecutionDetail.css'
 import AnalysisResults from '../components/AnalysisResults'
 import ExecutionMonitor from '../components/ExecutionMonitor'
 import { useParams } from 'react-router-dom'
