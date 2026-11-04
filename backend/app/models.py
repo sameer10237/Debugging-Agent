@@ -159,6 +159,7 @@ class AgentExecution(Base):
 class TestRun(Base):
     """Represents a test execution."""
     __tablename__ = "test_runs"
+    __test__ = False
 
     id = Column(Uuid, primary_key=True, default=uuid4)
     project_id = Column(Uuid, ForeignKey("projects.id", ondelete="CASCADE"), nullable=False, index=True)
