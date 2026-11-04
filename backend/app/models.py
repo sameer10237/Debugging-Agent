@@ -154,6 +154,7 @@ class TestRun(Base):
 
     # Relationships
     project = relationship("Project", back_populates="tests")
+    failures = relationship("Failure", back_populates="test_run", cascade="all, delete-orphan")
 
 
 class Failure(Base):
@@ -161,12 +162,20 @@ class Failure(Base):
     __tablename__ = "failures"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    test_run_id = Column(UUID(as_uuid=True), ForeignKey("test_runs.id"), nullable=False, index=True)
+    test_run_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("test_runs.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
     failure_type = Column(Enum(FailureTypeEnum), default=FailureTypeEnum.UNKNOWN, nullable=False)
     message = Column(Text, nullable=False)
     expected = Column(Text, nullable=True)
     actual = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    # Relationships
+    test_run = relationship("TestRun", back_populates="failures")
 
 
 class Analysis(Base):
